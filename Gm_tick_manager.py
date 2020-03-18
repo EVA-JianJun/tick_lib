@@ -8,6 +8,8 @@ from threading import Thread, Lock
 from datetime import datetime, timedelta
 from tick_lib.download_tick import download_tick
 from tick_lib.gen_tick_file import gen_tick_file
+from MyCTP.DataServer.TickFileFormat import TickFileFormat
+from MyCTP.shutil_pro.shutil_pro import shutil_pro
 
 class Gm_tick_manager():
 
@@ -19,6 +21,10 @@ class Gm_tick_manager():
         self.download_tick_lock = Lock()
         # 生成tick文件锁
         self.gen_tick_file_lock = Lock()
+        # 生成h5文件锁
+        self.gen_h5_tick_file_lock = Lock()
+
+        self.sp = shutil_pro()
 
         # 运行自动下载tick服务
         self.auto_download_tick()
@@ -107,17 +113,57 @@ class Gm_tick_manager():
 
             gcf.run()
         except Exception as err:
-            print("\033[0;36;41m生成tick pkl文化错误!\033[0m")
+            print("\033[0;36;41m生成tick pkl文件错误!\033[0m")
             traceback.print_exc()
             print(err)
         finally:
             self.gen_tick_file_lock.release()
 
+    def gen_h5_tick_file(self):
+        """ 生成h5 tick文件 """
+        trading_day = input("Please input trading_day, eg: 20190813.\ntrading_day=")
+
+        try:
+            trading_day = datetime.strptime(trading_day, '%Y%m%d')
+        except ValueError:
+            print("\033[0;36;42mtrading_day format err!\033[0m")
+            return
+
+        self.gen_h5_tick_file_lock.acquire()
+        try:
+            print("交易日: \033[0;36;44m{0}\033[0m".format(trading_day))
+            """ 生成全部的tick数据 """
+            # 就是按原本的csv文件的格式然后指定参数
+            old_file_path = os.path.join('.', 'download_tick_pkl', trading_day.strftime('%Y-%m-%d'), 'tick_{0}.pkl'.format(trading_day.strftime('%Y%m%d')))
+            new_file_path = './tick_{0}.pkl'.format(trading_day.strftime('%Y%m%d'))
+            # 移动文件到当前目录(懒得改下级包了)
+            self.sp.movefile(old_file_path, new_file_path)
+
+            # 然后生成h5文件
+            tf = TickFileFormat(new_file_path)
+            #  tf = TickFileFormat('./tick_20190709.csv')
+            # 然后默认全部生成
+            tf.run()
+
+            """ 只生成指数tick数据 """
+            # 虚拟文件,可以不存在,就是需要个日期参数,按照下面的这个文件名输入就可以了
+            #  tf = TickFileFormat('./tick_20190709.csv')
+            # 然后指定其他三个tick文件所在的位置,然后运行指数生成函数
+            #  tf.run_index('.')
+        except Exception as err:
+            print("\033[0;36;41m生成h5 tick 文件错误!\033[0m")
+            traceback.print_exc()
+            print(err)
+        finally:
+            # 再移动回去
+            self.sp.movefile(new_file_path, old_file_path)
+            self.gen_h5_tick_file_lock.release()
+
     def run(self):
         """ 运行控制器 """
         time.sleep(2)
         while True:
-            print("输出quit退出,输入cls清屏,输出run运行函数(1:下载tick, 2:生成tick文件)")
+            print("输出quit退出,输入cls清屏,输出run运行函数(1:下载tick, 2:生成tick文件, 3:生成h5 tick文件")
             user_input = input("λ: ")
             if user_input in ('QUIT', 'quit', 'Q', 'q'):
                 # 退出
@@ -132,3 +178,5 @@ class Gm_tick_manager():
                     self.download_tick_user()
                 elif function_id == '2':
                     self.gen_tick_file_user()
+                elif function_id == '3':
+                    self.gen_h5_tick_file()
