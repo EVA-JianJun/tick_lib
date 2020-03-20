@@ -203,7 +203,7 @@ def download_tick(token, trading_day):
 if __name__=='__main__':
     """ 下载一个交易日tick数据 """
     # 掘金token
-    #  token = 'fa511222c7caafd5ceb462299d4ca1444915052d'
+    #  token = 'your token'
     # 需要下载的交易日
     #  trading_day = datetime(2019, 8, 13)
 
